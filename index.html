@@ -3,669 +3,700 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Solar Dust - Interactive Particle System</title>
+    <title>Solar Dust II - Ethereal Edition</title>
     <style>
         :root {
-            --glass-bg: rgba(20, 20, 20, 0.6);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --accent: #ffffff;
-            --text: #e0e0e0;
+            --bg-color: #030305;
+            --glass-bg: rgba(20, 25, 30, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --accent: #8ab4f8;
+            --text-main: #e8eaed;
+            --text-sub: #9aa0a6;
         }
 
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
+            margin: 0; padding: 0; width: 100%; height: 100%;
             overflow: hidden;
-            background-color: #050505; /* Deep Space Black */
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: var(--text);
+            background-color: var(--bg-color);
+            font-family: "Segoe UI", Roboto, Helvetica, sans-serif;
+            color: var(--text-main);
         }
 
+        /* 画布 */
         #canvas-container {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            z-index: 1;
+            width: 100%; height: 100%; position: absolute; z-index: 1;
         }
+        #input-video { display: none; } /* 隐藏视频流 */
 
-        /* 隐藏的视频元素，用于MediaPipe处理 */
-        #input-video {
-            position: absolute;
-            width: 320px;
-            height: 240px;
-            top: -1000px; /* Hide offscreen */
-            left: 0;
-            z-index: 0;
-        }
-
-        /* UI 容器 */
-        #ui-container {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 10;
-            width: 280px;
-            pointer-events: none; /* 让鼠标穿透到下方 */
-        }
-
-        /* 磨砂玻璃面板 */
+        /* UI 通用样式 */
         .glass-panel {
             background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
             pointer-events: auto;
-            margin-bottom: 15px;
-            transition: transform 0.3s ease;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
 
-        h1 {
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin: 0 0 15px 0;
-            color: rgba(255,255,255,0.6);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 10px;
-        }
-
-        .control-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            font-size: 12px;
-            margin-bottom: 8px;
-            color: rgba(255,255,255,0.8);
-        }
-
-        /* 行星选择按钮 */
-        .planet-btn {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid transparent;
-            color: var(--text);
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            cursor: pointer;
-            margin: 2px;
-            transition: all 0.2s;
-            display: inline-block;
-        }
-
-        .planet-btn:hover, .planet-btn.active {
-            background: rgba(255,255,255,0.2);
-            border-color: rgba(255,255,255,0.3);
-        }
-
-        /* 颜色选择器 */
-        input[type="color"] {
-            -webkit-appearance: none;
-            border: none;
-            width: 100%;
-            height: 30px;
-            border-radius: 8px;
-            background: none;
-            cursor: pointer;
-        }
-        input[type="color"]::-webkit-color-swatch-wrapper {
-            padding: 0; 
-        }
-        input[type="color"]::-webkit-color-swatch {
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-        }
-
-        /* 摄像头状态指示 */
-        #cam-status {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-            font-size: 12px;
-            color: rgba(255,255,255,0.5);
-            background: rgba(0,0,0,0.6);
-            padding: 5px 15px;
-            border-radius: 20px;
-            pointer-events: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #ff4b4b;
-        }
-        .status-dot.active {
-            background-color: #00ff88;
-            box-shadow: 0 0 8px #00ff88;
-        }
-
-        /* 全屏按钮 */
-        #fullscreen-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 10;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            color: white;
-            padding: 10px;
-            border-radius: 50%;
-            cursor: pointer;
-            backdrop-filter: blur(10px);
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* 启动遮罩 */
-        #overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: opacity 0.5s;
-        }
+        h2 { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-sub); margin: 0 0 12px 0; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; }
         
-        #start-btn {
-            background: white;
-            color: black;
-            border: none;
-            padding: 15px 40px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 30px;
-            cursor: pointer;
-            margin-top: 20px;
-            transition: transform 0.2s;
+        /* 左侧控制栏 */
+        #left-sidebar {
+            position: absolute; top: 20px; left: 20px; width: 260px; z-index: 10;
+            display: flex; flex-direction: column; gap: 15px;
         }
-        #start-btn:hover { transform: scale(1.05); }
 
-        /* Loading */
-        .loader {
-            border: 2px solid rgba(255,255,255,0.1);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: none;
+        /* 行星列表 */
+        .planet-list { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; }
+        .planet-btn {
+            padding: 10px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-sub);
+            transition: 0.2s;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .planet-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .planet-btn.active { background: rgba(138, 180, 248, 0.15); color: var(--accent); border-left: 3px solid var(--accent); }
+
+        /* 手势指南 */
+        .guide-item { font-size: 11px; color: var(--text-sub); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+        .icon-box { width: 16px; height: 16px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; display: grid; place-items: center; font-size: 10px; }
+
+        /* 右侧信息面板 (默认隐藏) */
+        #info-panel {
+            position: absolute; top: 20px; right: 20px; width: 300px;
+            z-index: 10;
+            transform: translateX(120%); /* 初始滑出 */
+            opacity: 0;
+        }
+        #info-panel.visible { transform: translateX(0); opacity: 1; }
+
+        .info-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; }
+        .planet-title { font-size: 24px; font-weight: 300; letter-spacing: 2px; color: #fff; margin: 0; }
+        .planet-subtitle { font-size: 12px; color: var(--accent); text-transform: uppercase; }
+        
+        .info-content { font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.8); margin-bottom: 15px; }
+        
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .data-item { background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; }
+        .data-label { font-size: 10px; color: var(--text-sub); display: block; }
+        .data-value { font-size: 12px; color: #fff; font-family: monospace; }
+
+        #toggle-info {
+            position: absolute; top: 10px; right: 10px;
+            background: none; border: none; color: rgba(255,255,255,0.3); cursor: pointer;
+        }
+        #toggle-info:hover { color: #fff; }
+
+        /* 状态指示器 */
+        #cam-status {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 10;
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 16px; border-radius: 20px;
+        }
+        .status-dot { width: 6px; height: 6px; background: #444; border-radius: 50%; box-shadow: 0 0 5px #444; transition: 0.3s; }
+        .status-dot.active { background: #00ff88; box-shadow: 0 0 10px #00ff88; }
+        .status-text { font-size: 12px; color: var(--text-sub); }
+
+        /* 启动层 */
+        #overlay {
+            position: fixed; inset: 0; background: #000; z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.8s;
+        }
+        #start-btn {
+            background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.3);
+            padding: 15px 50px; font-size: 14px; letter-spacing: 4px; text-transform: uppercase;
+            cursor: pointer; transition: all 0.3s;
+        }
+        #start-btn:hover { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3); }
 
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
     <div id="overlay">
-        <h2 style="font-weight: 300; letter-spacing: 4px; margin-bottom: 10px;">SOLAR DUST</h2>
-        <p style="color: #666; font-size: 12px; max-width: 300px; text-align: center;">允许摄像头访问以启用手势控制<br>双指缩放 · 挥手旋转 · 握拳聚焦</p>
-        <button id="start-btn">开启星际探索</button>
-        <div class="loader" id="loader"></div>
+        <h1 style="font-weight: 100; font-size: 40px; letter-spacing: 8px; margin-bottom: 40px; text-align: center;">SOLAR <span style="color:#8ab4f8">DUST</span></h1>
+        <button id="start-btn">Initialize System</button>
     </div>
 
-    <div id="ui-container">
-        <div class="glass-panel">
-            <h1>控制中心</h1>
-            
-            <div class="control-group">
-                <label>目标天体</label>
-                <div id="planet-list">
-                    </div>
-            </div>
+    <div id="left-sidebar">
+        <div class="glass-panel" style="padding: 15px;">
+            <h2>Navigation</h2>
+            <div class="planet-list" id="planet-menu">
+                <div class="planet-btn active" onclick="focusPlanet(-1)">
+                    <span>Overview System</span>
+                    <span style="font-size:10px; opacity:0.5">●</span>
+                </div>
+                </div>
+        </div>
 
-            <div class="control-group">
-                <label>粒子颜色 (覆盖默认)</label>
-                <input type="color" id="particle-color" value="#ffffff">
+        <div class="glass-panel" style="padding: 15px;">
+            <h2>Gesture Guide</h2>
+            <div class="guide-item">
+                <div class="icon-box">↔</div> <span>单手水平移动: 旋转视角</span>
             </div>
-
-            <div class="control-group">
-                <label style="color:rgba(255,255,255,0.4); font-size: 10px; margin-top:10px;">
-                    状态: <span id="gesture-debug">等待手势...</span>
-                </label>
+            <div class="guide-item">
+                <div class="icon-box">👐</div> <span>双手张开/合拢: 缩放距离</span>
+            </div>
+            <div class="guide-item">
+                <div class="icon-box">✊</div> <span>握拳: 聚焦/增强粒子</span>
             </div>
         </div>
     </div>
 
-    <button id="fullscreen-btn">⛶</button>
-    
-    <div id="cam-status">
+    <div id="info-panel" class="glass-panel" style="padding: 20px;">
+        <button id="toggle-info" onclick="toggleInfoPanel()">_</button>
+        <div class="info-header">
+            <div>
+                <h1 class="planet-title" id="info-name">Earth</h1>
+                <div class="planet-subtitle" id="info-type">Terrestrial Planet</div>
+            </div>
+        </div>
+        <p class="info-content" id="info-desc">
+            Earth is the third planet from the Sun and the only astronomical object known to harbor life.
+        </p>
+        <div class="data-grid">
+            <div class="data-item">
+                <span class="data-label">DIAMETER</span>
+                <span class="data-value" id="info-dia">12,742 km</span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">AVG TEMP</span>
+                <span class="data-value" id="info-temp">15°C</span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">ORBIT</span>
+                <span class="data-value" id="info-orbit">365.25 days</span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">MOONS</span>
+                <span class="data-value" id="info-moons">1</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="cam-status" class="glass-panel">
         <div class="status-dot" id="status-dot"></div>
-        <span id="status-text">摄像头未激活</span>
+        <span class="status-text" id="status-text">Camera Standby</span>
     </div>
 
     <video id="input-video"></video>
     <div id="canvas-container"></div>
 
-    <script type="x-shader/x-vertex" id="vertexshader">
+    <script type="x-shader/x-vertex" id="vertexShader">
         attribute float size;
-        attribute float shift;
+        attribute float variation;
         uniform float uTime;
-        uniform float uScale; // 握拳控制的大小
-        varying vec3 vColor;
+        uniform float uScale;
         
+        varying vec3 vColor;
+        varying float vAlpha;
+
         void main() {
             vColor = color;
             vec3 p = position;
             
-            // 简单的波动效果，不粘连，模拟尘埃浮动
-            p.x += sin(uTime * 0.5 + shift) * 0.5;
-            p.y += cos(uTime * 0.3 + shift) * 0.5;
-            p.z += sin(uTime * 0.2 + shift * 2.0) * 0.2;
+            // 复杂的湍流运动
+            float t = uTime * 0.5 + variation;
+            p.x += sin(t * 0.5) * 0.05 * variation;
+            p.y += cos(t * 0.3) * 0.05 * variation;
+            p.z += sin(t * 0.7) * 0.05 * variation;
 
             vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
             
-            // 距离衰减公式，让远处的粒子变小
-            gl_PointSize = (size * uScale) * (300.0 / -mvPosition.z);
+            // 距离大小衰减
+            gl_PointSize = (size * uScale) * (150.0 / -mvPosition.z);
             gl_Position = projectionMatrix * mvPosition;
+
+            // 边缘淡出
+            vAlpha = smoothstep(500.0, 0.0, -mvPosition.z); 
         }
     </script>
 
-    <script type="x-shader/x-fragment" id="fragmentshader">
+    <script type="x-shader/x-fragment" id="fragmentShader">
         uniform sampler2D pointTexture;
-        uniform vec3 uOverrideColor;
-        uniform float uUseOverride; // 0.0 or 1.0
-        
         varying vec3 vColor;
+        varying float vAlpha;
         
         void main() {
-            // 圆形裁剪
             vec2 coord = gl_PointCoord - vec2(0.5);
-            if(length(coord) > 0.5) discard;
+            float dist = length(coord);
+            if(dist > 0.5) discard;
 
-            vec3 finalColor = mix(vColor, uOverrideColor, uUseOverride);
-            
-            // 柔和边缘
-            float alpha = 1.0 - smoothstep(0.3, 0.5, length(coord));
-            
-            gl_FragColor = vec4(finalColor, alpha * 0.8); // 0.8 opacity for soft look
+            // 软发光
+            float glow = 1.0 - smoothstep(0.0, 0.5, dist);
+            glow = pow(glow, 2.0); // 增强中心亮度
+
+            gl_FragColor = vec4(vColor, vAlpha * glow * 0.8);
         }
     </script>
 
     <script>
-        // --- Configuration ---
-        const CONFIG = {
-            particleCount: 4000, // 每个星球的粒子数
-            orbitColor: 0x333333,
-            bgColor: 0x050505
-        };
-
-        // --- Solar System Data (Stylized for Visuals, not strictly to scale) ---
-        // 明度调整：为了不丑，颜色偏灰度/低饱和
-        const PLANETS = [
-            { name: "Sun", color: new THREE.Color('#FFD700'), radius: 10, distance: 0, speed: 0 },
-            { name: "Mercury", color: new THREE.Color('#A5A5A5'), radius: 2, distance: 20, speed: 0.02 },
-            { name: "Venus", color: new THREE.Color('#E3BB76'), radius: 3.5, distance: 30, speed: 0.015 },
-            { name: "Earth", color: new THREE.Color('#4B70DD'), radius: 3.8, distance: 45, speed: 0.01 },
-            { name: "Mars", color: new THREE.Color('#D1684E'), radius: 2.5, distance: 60, speed: 0.008 },
-            { name: "Jupiter", color: new THREE.Color('#CFA474'), radius: 8, distance: 85, speed: 0.005 },
-            { name: "Saturn", color: new THREE.Color('#DFCE9F'), radius: 7, distance: 110, speed: 0.004 },
-            { name: "Uranus", color: new THREE.Color('#93B8BE'), radius: 5, distance: 135, speed: 0.003 },
-            { name: "Neptune", color: new THREE.Color('#5E7898'), radius: 5, distance: 155, speed: 0.002 }
+        // --- DATA ---
+        // 柔和的莫兰迪色系配置
+        const PLANETS_DB = [
+            { 
+                name: "Sun", type: "Star", 
+                color: [1.0, 0.6, 0.2], // 暖金
+                radius: 12, distance: 0, speed: 0, 
+                desc: "The heart of our system. A near-perfect sphere of hot plasma, heated to incandescence by nuclear fusion reactions in its core.",
+                data: { dia: "1.4M km", temp: "5,500°C", orbit: "N/A", moons: "0" }
+            },
+            { 
+                name: "Mercury", type: "Terrestrial", 
+                color: [0.7, 0.7, 0.75], // 冷灰
+                radius: 1.5, distance: 25, speed: 0.015,
+                desc: "The smallest planet in the Solar System and the closest to the Sun. It has a rocky body like Earth.",
+                data: { dia: "4,879 km", temp: "167°C", orbit: "88 days", moons: "0" }
+            },
+            { 
+                name: "Venus", type: "Terrestrial", 
+                color: [0.9, 0.8, 0.6], // 淡杏色
+                radius: 2.8, distance: 35, speed: 0.012,
+                desc: "Has a dense, toxic atmosphere containing carbon dioxide and clouds of sulfuric acid.",
+                data: { dia: "12,104 km", temp: "464°C", orbit: "225 days", moons: "0" }
+            },
+            { 
+                name: "Earth", type: "Terrestrial", 
+                color: [0.2, 0.5, 0.9], // 蔚蓝
+                radius: 3, distance: 50, speed: 0.01,
+                desc: "Our home. It provides the perfect conditions for life, with vast oceans and a protective atmosphere.",
+                data: { dia: "12,742 km", temp: "15°C", orbit: "365 days", moons: "1" }
+            },
+            { 
+                name: "Mars", type: "Terrestrial", 
+                color: [0.8, 0.3, 0.2], // 锈红
+                radius: 2, distance: 65, speed: 0.008,
+                desc: "The Red Planet. Dusty, cold, desert world with a very thin atmosphere.",
+                data: { dia: "6,779 km", temp: "-65°C", orbit: "687 days", moons: "2" }
+            },
+            { 
+                name: "Jupiter", type: "Gas Giant", 
+                color: [0.8, 0.7, 0.6], // 木纹色
+                radius: 7, distance: 90, speed: 0.005,
+                desc: "The largest planet. A gas giant with a mass more than two and a half times that of all the other planets combined.",
+                data: { dia: "139,820 km", temp: "-110°C", orbit: "12 yrs", moons: "79" }
+            },
+            { 
+                name: "Saturn", type: "Gas Giant", 
+                color: [0.85, 0.8, 0.65], // 浅金
+                radius: 6, distance: 115, speed: 0.004, hasRings: true,
+                desc: "Adorned with a dazzling, complex system of icy rings, Saturn is unique in our solar system.",
+                data: { dia: "116,460 km", temp: "-140°C", orbit: "29 yrs", moons: "82" }
+            },
+            { 
+                name: "Uranus", type: "Ice Giant", 
+                color: [0.6, 0.8, 0.9], // 青蓝
+                radius: 4, distance: 135, speed: 0.003,
+                desc: "An ice giant. It rotates at a nearly 90-degree angle from the plane of its orbit.",
+                data: { dia: "50,724 km", temp: "-195°C", orbit: "84 yrs", moons: "27" }
+            },
+            { 
+                name: "Neptune", type: "Ice Giant", 
+                color: [0.3, 0.4, 0.8], // 深蓝
+                radius: 4, distance: 155, speed: 0.002,
+                desc: "The most distant major planet. Dark, cold and whipped by supersonic winds.",
+                data: { dia: "49,244 km", temp: "-200°C", orbit: "165 yrs", moons: "14" }
+            }
         ];
 
-        // --- Global Variables ---
-        let scene, camera, renderer, particlesMesh, orbitLines;
+        // --- GLOBAL VARS ---
+        let scene, camera, renderer;
         let uniforms;
-        let targetRotationY = 0;
-        let targetZoom = 150;
-        let targetParticleScale = 1.0;
-        let isFist = false;
-        let activePlanetIndex = -1; // -1 means overview
+        let solarSystemGroup; // 包含所有星球
+        let orbitSystemGroup; // 包含所有轨道
+        let planetMeshes = []; // 存储行星对象的引用以便移动
+        let isFocused = false;
+        let focusedPlanetIdx = -1;
+        let globalSpeed = 1.0;
 
-        // Interaction State
-        const handState = {
-            x: 0, // Normalized 0-1
-            y: 0,
-            distance: 0, // Between hands
-            isTracking: false
-        };
+        // Camera State
+        let targetCamPos = new THREE.Vector3(0, 60, 180);
+        let currentCamPos = new THREE.Vector3(0, 60, 180);
+        let targetLookAt = new THREE.Vector3(0, 0, 0);
+        let currentLookAt = new THREE.Vector3(0, 0, 0);
 
-        // --- Initialization ---
-        function init() {
+        // Gesture State
+        let handState = { x: 0.5, y: 0.5, spread: 0, active: false, isFist: false };
+
+        // --- INIT ---
+        const startBtn = document.getElementById('start-btn');
+        const overlay = document.getElementById('overlay');
+        
+        startBtn.addEventListener('click', async () => {
+            startBtn.innerText = "Connecting Optics...";
+            await startCamera();
+            init3D();
+            createUI();
+            animate();
+            overlay.style.opacity = 0;
+            setTimeout(() => overlay.style.display = 'none', 800);
+        });
+
+        function init3D() {
             const container = document.getElementById('canvas-container');
 
-            // Scene
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(CONFIG.bgColor, 0.002);
+            scene.fog = new THREE.FogExp2(0x030305, 0.0015);
 
-            // Camera
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 40, 150);
-            camera.lookAt(0, 0, 0);
+            camera.position.copy(currentCamPos);
 
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(CONFIG.bgColor);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Performance optimization
             container.appendChild(renderer.domElement);
 
-            // Build System
-            buildSolarSystem();
-            buildOrbits();
-            setupUI();
+            // Groups
+            solarSystemGroup = new THREE.Group();
+            orbitSystemGroup = new THREE.Group();
+            scene.add(solarSystemGroup);
+            scene.add(orbitSystemGroup);
 
-            // Resize Event
-            window.addEventListener('resize', onWindowResize, false);
-            
-            // Fullscreen
-            document.getElementById('fullscreen-btn').addEventListener('click', () => {
-                if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-                else if (document.exitFullscreen) document.exitFullscreen();
+            // Shader Uniforms
+            uniforms = {
+                uTime: { value: 0 },
+                uScale: { value: 1.0 },
+                pointTexture: { value: createSoftTexture() }
+            };
+
+            // Build Planets & Orbits
+            PLANETS_DB.forEach((data, index) => {
+                const planetObj = createPlanet(data, uniforms);
+                planetObj.userData = { 
+                    angle: Math.random() * Math.PI * 2, 
+                    distance: data.distance, 
+                    speed: data.speed 
+                };
+                
+                // 初始位置
+                const x = Math.cos(planetObj.userData.angle) * data.distance;
+                const z = Math.sin(planetObj.userData.angle) * data.distance;
+                planetObj.position.set(x, 0, z);
+
+                solarSystemGroup.add(planetObj);
+                planetMeshes.push(planetObj);
+
+                if(data.distance > 0) createOrbitDust(data.distance);
             });
 
-            animate();
+            // Ambient Stars
+            createBackgroundStars();
+
+            window.addEventListener('resize', onResize);
         }
 
-        // --- Particle System Generation ---
-        function buildSolarSystem() {
+        // --- PARTICLE CREATION ---
+        function createPlanet(data, uniforms) {
+            const group = new THREE.Group();
+            
+            const count = data.name === "Sun" ? 5000 : 1500;
             const geometry = new THREE.BufferGeometry();
             const positions = [];
             const colors = [];
             const sizes = [];
-            const shifts = []; // Random shift for shader animation
+            const variations = [];
 
-            PLANETS.forEach((planet, index) => {
-                const count = planet.name === 'Sun' ? CONFIG.particleCount * 2 : CONFIG.particleCount;
-                
-                for (let i = 0; i < count; i++) {
-                    // Create sphere distribution
-                    const theta = Math.random() * Math.PI * 2;
-                    const phi = Math.acos(Math.random() * 2 - 1);
-                    
-                    // Surface distribution with volume softness
-                    const r = planet.radius * (0.8 + Math.random() * 0.4); 
+            const colorBase = new THREE.Color(data.color[0], data.color[1], data.color[2]);
+            const hsl = {}; colorBase.getHSL(hsl);
 
-                    const x = r * Math.sin(phi) * Math.cos(theta);
-                    const y = r * Math.sin(phi) * Math.sin(theta);
-                    const z = r * Math.cos(phi);
+            for (let i = 0; i < count; i++) {
+                // Volume Distribution: Concentrate in center
+                const r = data.radius * Math.pow(Math.random(), 0.5); // 更均匀的球体分布
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(Math.random() * 2 - 1);
 
-                    // Add orbital offset
-                    // We start them all aligned for simplicity, but in animation we rotate the container
-                    positions.push(x + planet.distance, y, z); // Initial x offset by distance
+                let x = r * Math.sin(phi) * Math.cos(theta);
+                let y = r * Math.sin(phi) * Math.sin(theta);
+                let z = r * Math.cos(phi);
 
-                    // Color
-                    colors.push(planet.color.r, planet.color.g, planet.color.b);
-
-                    // Size (Dusty feel = varied sizes)
-                    sizes.push(Math.random() * 2.5);
-
-                    shifts.push(Math.random() * 100);
+                // Add Atmosphere layer
+                if (Math.random() > 0.8 && data.name !== "Sun") {
+                    const rAtm = data.radius * (1.1 + Math.random() * 0.2);
+                    x = rAtm * Math.sin(phi) * Math.cos(theta);
+                    y = rAtm * Math.sin(phi) * Math.sin(theta);
+                    z = rAtm * Math.cos(phi);
                 }
-            });
+
+                positions.push(x, y, z);
+
+                // Color Variation (Softer)
+                const c = new THREE.Color().setHSL(
+                    hsl.h + (Math.random() - 0.5) * 0.05,
+                    hsl.s * 0.8, // Lower saturation
+                    hsl.l + (Math.random() - 0.5) * 0.2
+                );
+                colors.push(c.r, c.g, c.b);
+
+                // Size Variation
+                sizes.push(Math.random() * 1.5 + 0.5);
+                variations.push(Math.random());
+            }
+
+            // Saturn Rings
+            if(data.hasRings) {
+                for(let i=0; i<800; i++) {
+                    const r = data.radius * (1.5 + Math.random() * 1.5);
+                    const theta = Math.random() * Math.PI * 2;
+                    positions.push(r * Math.cos(theta), (Math.random()-0.5)*0.2, r * Math.sin(theta));
+                    colors.push(colorBase.r*0.8, colorBase.g*0.8, colorBase.b*0.8);
+                    sizes.push(0.8);
+                    variations.push(Math.random());
+                }
+            }
 
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
             geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
             geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
-            geometry.setAttribute('shift', new THREE.Float32BufferAttribute(shifts, 1));
-
-            // Shader Material
-            uniforms = {
-                uTime: { value: 0 },
-                uScale: { value: 1.0 },
-                pointTexture: { value: createSoftTexture() },
-                uOverrideColor: { value: new THREE.Color(0xffffff) },
-                uUseOverride: { value: 0.0 }
-            };
+            geometry.setAttribute('variation', new THREE.Float32BufferAttribute(variations, 1));
 
             const material = new THREE.ShaderMaterial({
                 uniforms: uniforms,
-                vertexShader: document.getElementById('vertexshader').textContent,
-                fragmentShader: document.getElementById('fragmentshader').textContent,
+                vertexShader: document.getElementById('vertexShader').textContent,
+                fragmentShader: document.getElementById('fragmentShader').textContent,
                 blending: THREE.AdditiveBlending,
                 depthTest: false,
                 transparent: true,
                 vertexColors: true
             });
 
-            particlesMesh = new THREE.Points(geometry, material);
-            scene.add(particlesMesh);
+            const mesh = new THREE.Points(geometry, material);
+            group.add(mesh);
+
+            return group;
         }
 
-        // --- Orbit Lines ---
-        function buildOrbits() {
-            orbitLines = new THREE.Group();
-            PLANETS.forEach(planet => {
-                if (planet.distance === 0) return;
-                
-                const points = [];
-                // High segment count for smooth circles
-                for (let i = 0; i <= 128; i++) {
-                    const angle = (i / 128) * Math.PI * 2;
-                    points.push(new THREE.Vector3(Math.cos(angle) * planet.distance, 0, Math.sin(angle) * planet.distance));
-                }
-                const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                const material = new THREE.LineBasicMaterial({ 
-                    color: 0xffffff, 
-                    transparent: true, 
-                    opacity: 0.05 // Very faint, elegant
-                });
-                const line = new THREE.Line(geometry, material);
-                orbitLines.add(line);
+        function createOrbitDust(radius) {
+            const particles = 300; // 每个轨道的粒子数
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+
+            for (let i = 0; i < particles; i++) {
+                const angle = (i / particles) * Math.PI * 2;
+                // Add noise to orbit to make it look like dust, not a wire
+                const r = radius + (Math.random() - 0.5) * 0.5; 
+                positions.push(
+                    Math.cos(angle) * r, 
+                    (Math.random() - 0.5) * 0.5, 
+                    Math.sin(angle) * r
+                );
+                // Very faint white
+                colors.push(0.4, 0.4, 0.45); 
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.3,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.4,
+                blending: THREE.AdditiveBlending
             });
-            scene.add(orbitLines);
+
+            const orbit = new THREE.Points(geometry, material);
+            orbitSystemGroup.add(orbit);
         }
 
-        // --- Utils ---
+        function createBackgroundStars() {
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            for (let i = 0; i < 2000; i++) {
+                const r = 400 + Math.random() * 400;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(Math.random() * 2 - 1);
+                positions.push(
+                    r * Math.sin(phi) * Math.cos(theta),
+                    r * Math.sin(phi) * Math.sin(theta),
+                    r * Math.cos(phi)
+                );
+            }
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({ color: 0x555555, size: 1.5, sizeAttenuation: false });
+            scene.add(new THREE.Points(geometry, material));
+        }
+
         function createSoftTexture() {
             const canvas = document.createElement('canvas');
-            canvas.width = 32;
-            canvas.height = 32;
+            canvas.width = 32; canvas.height = 32;
             const ctx = canvas.getContext('2d');
-            const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-            grad.addColorStop(0, 'rgba(255,255,255,1)');
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, 32, 32);
-            const texture = new THREE.Texture(canvas);
-            texture.needsUpdate = true;
-            return texture;
+            const g = ctx.createRadialGradient(16,16,0,16,16,16);
+            g.addColorStop(0, 'rgba(255,255,255,1)');
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(0,0,32,32);
+            const tex = new THREE.Texture(canvas);
+            tex.needsUpdate = true;
+            return tex;
         }
 
-        function onWindowResize() {
+        // --- UI & INTERACTION ---
+        function createUI() {
+            const menu = document.getElementById('planet-menu');
+            PLANETS_DB.forEach((p, i) => {
+                const btn = document.createElement('div');
+                btn.className = 'planet-btn';
+                btn.id = `btn-${i}`;
+                btn.innerHTML = `<span>${p.name}</span><span style="font-size:10px; opacity:0.3">○</span>`;
+                btn.onclick = () => focusPlanet(i);
+                menu.appendChild(btn);
+            });
+        }
+
+        window.focusPlanet = function(index) {
+            focusedPlanetIdx = index;
+            isFocused = (index !== -1);
+
+            // Update UI buttons
+            document.querySelectorAll('.planet-btn').forEach(b => b.classList.remove('active'));
+            if(index === -1) {
+                document.querySelector('.planet-btn').classList.add('active'); // First one is overview
+                hideInfoPanel();
+                // Reset Camera Target to Overview
+                targetCamPos.set(0, 60, 180);
+                targetLookAt.set(0, 0, 0);
+                globalSpeed = 1.0;
+            } else {
+                document.getElementById(`btn-${index}`).classList.add('active');
+                updateInfoPanel(index);
+                // Camera logic handled in Animate loop because planets move
+                globalSpeed = 0.2; // Slow down time when focused
+            }
+        };
+
+        function updateInfoPanel(index) {
+            const data = PLANETS_DB[index];
+            document.getElementById('info-name').innerText = data.name;
+            document.getElementById('info-type').innerText = data.type;
+            document.getElementById('info-desc').innerText = data.desc;
+            document.getElementById('info-dia').innerText = data.data.dia;
+            document.getElementById('info-temp').innerText = data.data.temp;
+            document.getElementById('info-orbit').innerText = data.data.orbit;
+            document.getElementById('info-moons').innerText = data.data.moons;
+            
+            document.getElementById('info-panel').classList.add('visible');
+        }
+
+        window.hideInfoPanel = function() {
+            document.getElementById('info-panel').classList.remove('visible');
+        };
+        
+        window.toggleInfoPanel = function() {
+            document.getElementById('info-panel').classList.toggle('visible');
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now() * 0.001;
+            uniforms.uTime.value = time;
+            TWEEN.update();
+
+            // 1. Planet Orbital Movement
+            planetMeshes.forEach((mesh, i) => {
+                if (PLANETS_DB[i].distance === 0) return; // Sun doesn't orbit
+
+                // Move orbit
+                mesh.userData.angle += mesh.userData.speed * globalSpeed * (handState.active ? 0.2 : 1.0); // Hand slows time
+                const x = Math.cos(mesh.userData.angle) * mesh.userData.distance;
+                const z = Math.sin(mesh.userData.angle) * mesh.userData.distance;
+                mesh.position.set(x, 0, z);
+
+                // Self rotation (visual only)
+                mesh.rotation.y += 0.005; 
+                if(PLANETS_DB[i].hasRings) {
+                    mesh.rotation.x = Math.sin(time*0.1) * 0.1; // Gentle ring tilt wobble
+                    mesh.rotation.z = Math.cos(time*0.1) * 0.1;
+                }
+            });
+
+            // 2. Camera Logic
+            if (isFocused && focusedPlanetIdx !== -1) {
+                // Focused Mode: Follow the planet
+                const targetMesh = planetMeshes[focusedPlanetIdx];
+                const planetPos = targetMesh.position.clone();
+                const radius = PLANETS_DB[focusedPlanetIdx].radius;
+
+                // Calculate a nice offset vector relative to the sun to see the "dark side" or rim light
+                // Let's aim to view from slightly above and outside orbit
+                const offset = planetPos.clone().normalize().multiplyScalar(radius * 4 + 10);
+                offset.y += radius * 1.5;
+                
+                targetCamPos.copy(planetPos).add(offset);
+                targetLookAt.copy(planetPos);
+            }
+
+            // Gesture Influence on Camera
+            let gestureRotY = 0;
+            let gestureZoom = 0;
+
+            if (handState.active) {
+                // Rotation (Pan)
+                gestureRotY = (handState.x - 0.5) * 2.0; 
+                // Zoom
+                if (handState.spread > 0) {
+                    gestureZoom = (1.0 - handState.spread) * 50; 
+                }
+                // Fist Effect
+                const targetScale = handState.isFist ? 2.5 : 1.0;
+                uniforms.uScale.value += (targetScale - uniforms.uScale.value) * 0.1;
+            } else {
+                uniforms.uScale.value += (1.0 - uniforms.uScale.value) * 0.1;
+            }
+
+            // Smooth Camera Transition (Lerp)
+            // Apply base target movement
+            currentCamPos.lerp(targetCamPos, 0.05);
+            currentLookAt.lerp(targetLookAt, 0.05);
+
+            // Apply manual rotation offset to the group, not camera, for easier control
+            // Overview mode: Rotate system. Focused mode: Rotate around planet?
+            // Let's stick to rotating the scene container for "God view" feel
+            if (!isFocused) {
+                solarSystemGroup.rotation.y += gestureRotY * 0.05;
+                orbitSystemGroup.rotation.y += gestureRotY * 0.05;
+                // Auto rotate slowly
+                if(!handState.active) {
+                    solarSystemGroup.rotation.y += 0.0005;
+                    orbitSystemGroup.rotation.y += 0.0005;
+                }
+            } else {
+                // In focused mode, hand rotation orbits the camera around the planet slightly
+                // For simplicity, we just slightly offset camera
+                currentCamPos.x += gestureRotY * 1.0;
+            }
+
+            camera.position.copy(currentCamPos);
+            camera.lookAt(currentLookAt);
+
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // --- Animation Loop ---
-        function animate() {
-            requestAnimationFrame(animate);
+        // --- MEDIAPIPE LOGIC ---
+        async function startCamera() {
+            const video = document.getElementById('input-video');
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
 
-            const time = performance.now() * 0.001;
-            uniforms.uTime.value = time;
-
-            // 1. Gesture Smoothing Logic
-            // Rotate Scene based on hand X position
-            if (handState.isTracking) {
-                // Map hand x (0-1) to rotation (-PI to PI)
-                // Invert direction for "Paddle" feel: Moving hand left rotates scene right
-                const targetRot = (handState.x - 0.5) * 4; 
-                targetRotationY += (targetRot - targetRotationY) * 0.05;
-
-                // Zoom based on hand distance (spread)
-                // Default distance approx 0.2-0.4. Map to zoom 50-250
-                if (handState.distance > 0) {
-                     // Normalize distance roughly 0.1 to 0.6
-                     let d = Math.max(0.1, Math.min(handState.distance, 0.6));
-                     let zoomLevel = 300 - (d * 400); // Spread hands = Closer (smaller z)
-                     targetZoom += (zoomLevel - targetZoom) * 0.05;
-                }
-
-                // Fist Logic
-                const scaleTarget = isFist ? 2.5 : 1.0;
-                targetParticleScale += (scaleTarget - targetParticleScale) * 0.1;
-            } else {
-                // Auto rotate slowly if no hands
-                targetRotationY += 0.001;
-                // Revert to overview zoom
-                targetZoom += (150 - targetZoom) * 0.02;
-                targetParticleScale += (1.0 - targetParticleScale) * 0.1;
-            }
-
-            // Apply Camera Transforms
-            // Smooth dampening
-            scene.rotation.y = targetRotationY;
-            camera.position.z = Math.max(20, targetZoom); // Clamp close zoom
-            camera.lookAt(scene.position);
-
-            // Apply Uniforms
-            uniforms.uScale.value = targetParticleScale;
-
-            // Optional: Rotate Orbit Lines separately or with scene
-            // Here we keep them static relative to planets for simplicity, but maybe subtle wobble
-
-            renderer.render(scene, camera);
-        }
-
-        // --- UI Setup ---
-        function setupUI() {
-            const list = document.getElementById('planet-list');
-            
-            // Add "Overview"
-            const btnAll = document.createElement('div');
-            btnAll.className = 'planet-btn active';
-            btnAll.innerText = 'All System';
-            btnAll.onclick = () => { selectPlanet(-1, btnAll); };
-            list.appendChild(btnAll);
-
-            PLANETS.forEach((p, i) => {
-                const btn = document.createElement('div');
-                btn.className = 'planet-btn';
-                btn.innerText = p.name;
-                btn.onclick = () => { selectPlanet(i, btn); };
-                list.appendChild(btn);
-            });
-
-            // Color Picker
-            document.getElementById('particle-color').addEventListener('input', (e) => {
-                const color = new THREE.Color(e.target.value);
-                uniforms.uOverrideColor.value = color;
-                uniforms.uUseOverride.value = 1.0;
-            });
-        }
-
-        function selectPlanet(index, btnElement) {
-            activePlanetIndex = index;
-            document.querySelectorAll('.planet-btn').forEach(b => b.classList.remove('active'));
-            btnElement.classList.add('active');
-            
-            // Note: In this specific particle system structure (single geometry), 
-            // focusing on a specific planet strictly via geometry is complex.
-            // For this demo, we simply reset the view. 
-            // A more complex version would compute the offset of that specific planet's particles.
-            if(index === -1) {
-                uniforms.uUseOverride.value = 0.0; // Reset color
-            }
-        }
-
-        // --- MediaPipe Hands Setup ---
-        const videoElement = document.getElementById('input-video');
-        const startBtn = document.getElementById('start-btn');
-        const loader = document.getElementById('loader');
-        const overlay = document.getElementById('overlay');
-        const debugText = document.getElementById('gesture-debug');
-        const statusDot = document.getElementById('status-dot');
-        const statusText = document.getElementById('status-text');
-
-        startBtn.addEventListener('click', () => {
-            startBtn.style.display = 'none';
-            loader.style.display = 'block';
-            startCamera();
-        });
-
-        function onResults(results) {
-            handState.isTracking = false;
-            isFist = false;
-
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                handState.isTracking = true;
-                statusDot.classList.add('active');
-                statusText.innerText = "手势控制中";
-
-                const landmarks1 = results.multiHandLandmarks[0];
-                
-                // 1. Calculate Center X (for Rotation)
-                // Use wrist (0)
-                let avgX = landmarks1[0].x;
-
-                // 2. Dual Hand Logic (Zoom/Diffusion)
-                if (results.multiHandLandmarks.length === 2) {
-                    const landmarks2 = results.multiHandLandmarks[1];
-                    const x1 = landmarks1[0].x;
-                    const y1 = landmarks1[0].y;
-                    const x2 = landmarks2[0].x;
-                    const y2 = landmarks2[0].y;
-
-                    // Distance
-                    const dist = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-                    handState.distance = dist;
-                    avgX = (x1 + x2) / 2;
-                    
-                    debugText.innerText = `双手指控: 距离 ${(dist).toFixed(2)}`;
-                } else {
-                    // Single Hand
-                    handState.distance = 0; // No zoom change
-                    debugText.innerText = `单手指控: 水平 ${avgX.toFixed(2)}`;
-                }
-
-                // Reverse X because webcam is mirrored usually, but MediaPipe outputs normalized coordinates
-                // Let's assume natural mirroring: Moving hand right on screen (your left)
-                handState.x = 1.0 - avgX; 
-
-                // 3. Fist Detection (Simple Heuristic)
-                // Check if finger tips are below finger PIP joints (curled)
-                // Index finger tip (8) vs pip (6)
-                // Only checking first hand for simplicity
-                const tip8 = landmarks1[8].y;
-                const pip6 = landmarks1[6].y;
-                const tip12 = landmarks1[12].y;
-                const pip10 = landmarks1[10].y;
-                
-                // If tips are lower (y is higher) than PIP joints, roughly a fist
-                // Note: Y increases downwards
-                if (tip8 > pip6 && tip12 > pip10) {
-                    isFist = true;
-                    debugText.innerText += " | 状态: 握拳 (聚焦)";
-                } else {
-                    debugText.innerText += " | 状态: 张开";
-                }
-
-            } else {
-                statusDot.classList.remove('active');
-                statusText.innerText = "未检测到双手";
-                debugText.innerText = "等待手势...";
-            }
-        }
-
-        function startCamera() {
-            const hands = new Hands({locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-            }});
-            
+            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             hands.setOptions({
                 maxNumHands: 2,
                 modelComplexity: 1,
@@ -673,33 +704,44 @@
                 minTrackingConfidence: 0.5
             });
 
-            hands.onResults(onResults);
+            hands.onResults((results) => {
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    handState.active = true;
+                    statusDot.classList.add('active');
+                    statusText.innerText = "System Locked: Hand Detected";
 
-            const cameraUtils = new Camera(videoElement, {
-                onFrame: async () => {
-                    await hands.send({image: videoElement});
-                },
-                width: 320,
-                height: 240
+                    const lm = results.multiHandLandmarks[0];
+                    handState.x = 1.0 - lm[9].x; // Use Middle finger MCP for stability
+                    handState.y = lm[9].y;
+
+                    // Dual hand zoom
+                    if (results.multiHandLandmarks.length === 2) {
+                        const lm2 = results.multiHandLandmarks[1];
+                        const dist = Math.hypot(lm[9].x - lm2[9].x, lm[9].y - lm2[9].y);
+                        handState.spread = Math.min(Math.max(dist, 0.1), 0.8) / 0.8; // Normalize approx
+                    } else {
+                        handState.spread = 0;
+                    }
+
+                    // Fist detection (Simple: Tip close to Base)
+                    // Index finger tip(8) vs pip(6)
+                    const isCurled = lm[8].y > lm[6].y; 
+                    handState.isFist = isCurled;
+
+                } else {
+                    handState.active = false;
+                    statusDot.classList.remove('active');
+                    statusText.innerText = "Scanning for Input...";
+                }
             });
 
-            cameraUtils.start()
-                .then(() => {
-                    init(); // Init 3D scene after camera is ready (optional logic)
-                    overlay.style.opacity = 0;
-                    setTimeout(() => overlay.style.display = 'none', 500);
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert("无法启动摄像头，请确保允许权限并使用HTTPS/Localhost");
-                    loader.style.display = 'none';
-                    startBtn.style.display = 'block';
-                });
+            const cameraUtils = new Camera(video, {
+                onFrame: async () => { await hands.send({image: video}); },
+                width: 320, height: 240
+            });
+            
+            await cameraUtils.start();
         }
-        
-        // Auto init just to show something if camera fails or before click? 
-        // No, wait for user.
-        
     </script>
 </body>
 </html>
